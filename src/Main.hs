@@ -8,8 +8,9 @@
 --{-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE GADTs #-}
 module Main where
-  import Data.Singletons
   import Data.Kind
+  import Data.Monoid
+  import Data.Singletons
   import Data.Singletons.TH
   import Data.Time
 
@@ -34,18 +35,15 @@ module Main where
   type family TermValue (k :: TermType) :: * 
 
   data Event :: EventType -> TermType -> Type where
-    MkEvent :: EventValue e -> TermValue k -> Event e k
+    MkEvent :: (Show (EventValue e), Show (TermValue k)) => EventValue e -> TermValue k -> Event e k
 
-  deriving instance (Show (EventValue e), Show (TermValue t)) => Show (Event e t)
+  deriving instance Show (Event e t)
 
   data SomeEvent :: Type where
-    MkSomeEvent :: Sing e -> Sing t -> Event e t -> SomeEvent 
+    MkSomeEvent ::  Sing e -> Sing t -> Event e t -> SomeEvent 
 
-  fromEvent :: Sing e -> Sing t -> Event e t -> SomeEvent
-  fromEvent = MkSomeEvent
-
-  fromEvent_ :: (SingI e, SingI t) => Event e t -> SomeEvent
-  fromEvent_ = fromEvent sing sing
+  fromEvent :: (SingI e, SingI t) => Event e t -> SomeEvent
+  fromEvent = MkSomeEvent sing sing
 
   type instance EventValue Simple = Name
 
@@ -60,9 +58,21 @@ module Main where
   appoint :: ZonedTime -> Event a None -> Event a At
   appoint z (MkEvent a _) = MkEvent a z
 
+  showSE :: SomeEvent -> String
+  showSE (MkSomeEvent e t ev) = "MkSomeEvent " <> show (fromSing e) <> " " <> show (fromSing t) <> " " <> show ev
+  
+  instance Show SomeEvent where
+    showsPrec i (MkSomeEvent e t ev) = 
+        showString "MkSomeEvent " . 
+        showsPrec i (fromSing e) . showString " " . 
+        showsPrec i (fromSing t) . showString " " .
+        showParen True (showsPrec (i + 1) ev)
+
   main :: IO ()
   main = do
     let ev = event "Event 1"
     putStrLn $ show ev
     ap <- flip appoint ev <$> getZonedTime
     putStrLn $ show ap
+    let evs = [fromEvent ev, fromEvent ap]
+    putStrLn $ show evs
