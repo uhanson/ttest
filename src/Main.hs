@@ -35,8 +35,17 @@ module Main where
 
   data Event :: EventType -> TermType -> Type where
     MkEvent :: EventValue e -> TermValue k -> Event e k
-  
+
   deriving instance (Show (EventValue e), Show (TermValue t)) => Show (Event e t)
+
+  data SomeEvent :: Type where
+    MkSomeEvent :: Sing e -> Sing t -> Event e t -> SomeEvent 
+
+  fromEvent :: Sing e -> Sing t -> Event e t -> SomeEvent
+  fromEvent = MkSomeEvent
+
+  fromEvent_ :: (SingI e, SingI t) => Event e t -> SomeEvent
+  fromEvent_ = fromEvent sing sing
 
   type instance EventValue Simple = Name
 
